@@ -57,9 +57,9 @@ self.addEventListener('install', event => {
           '/img/10-small.jpg',
           '/img/10-medium.jpg',
           '/img/10-large.jpg',
-          '/data/restaurants.json',
-          '/restaurant.html'
-          /*'/restaurant.html?id=1',
+          /*'/data/restaurants.json',*/
+          '/restaurant.html',
+          '/restaurant.html?id=1',
           '/restaurant.html?id=2',
           '/restaurant.html?id=3',
           '/restaurant.html?id=4',
@@ -68,7 +68,7 @@ self.addEventListener('install', event => {
           '/restaurant.html?id=7',
           '/restaurant.html?id=8',
           '/restaurant.html?id=9',
-          '/restaurant.html?id=10'*/
+          '/restaurant.html?id=10'
         ]).catch(error => {
           console.log('Caches open failed: ' + error);
         });
@@ -81,7 +81,7 @@ self.addEventListener('activate', function(event){
         caches.keys().then(function(cacheNames) {
             return Promise.all(
                 cacheNames.filter(function(cacheName) {
-                    return cacheName.startsWith('currency-') &&
+                    return cacheName.startsWith('mws-restaurant-static-') &&
                            cacheName != staticCacheName;
                 }).map(function(cacheName) {
                     return caches.delete(cacheName);
