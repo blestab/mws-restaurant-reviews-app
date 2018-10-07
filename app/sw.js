@@ -14,6 +14,7 @@ self.addEventListener('install', event => {
           '/img/offline.jpg',
           '/img/icon/Icon.png',
           '/favicon.ico',
+          '/manifest.json',
           '/img/1-small.jpg',
           '/img/1-medium.jpg',
           '/img/1-large.jpg',

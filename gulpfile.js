@@ -92,10 +92,17 @@ gulp.task('extras', () => {
   }).pipe(gulp.dest('dist'));
 });
 
+// Copy manifest
+gulp.task('manifest', function () {
+  return gulp.src('app/manifest.json')
+    .pipe(gulp.dest('.tmp/'))
+    .pipe(gulp.dest('dist/'));
+});
+
 gulp.task('clean', del.bind(null, ['.tmp', 'dist']));
 
 gulp.task('serve', () => {
-  runSequence(['clean', 'wiredep'], ['styles', 'scripts', 'fonts'], () => {
+  runSequence(['clean', 'wiredep'], ['styles', 'scripts', 'fonts','manifest'], () => {
     browserSync.init({
       notify: false,
       port: 8000,
@@ -110,6 +117,7 @@ gulp.task('serve', () => {
     gulp.watch([
       'app/*.html',
       'app/images/**/*',
+      'app/manifest.json',
       '.tmp/fonts/**/*'
     ]).on('change', reload);
 
@@ -166,7 +174,7 @@ gulp.task('wiredep', () => {
     .pipe(gulp.dest('app'));
 });
 
-gulp.task('build', ['lint', 'html', 'images', 'fonts', 'extras'], () => {
+gulp.task('build', ['lint', 'html', 'images', 'fonts', 'extras','manifest'], () => {
   return gulp.src('dist/**/*').pipe($.size({title: 'build', gzip: true}));
 });
 
