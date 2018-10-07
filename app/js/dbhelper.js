@@ -10,13 +10,14 @@ class DBHelper {
   static get DATABASE_URL() {
     const protocol = window.location.protocol;
     const host = window.location.host;
-    const port = 8000; // Change this to your server port
+    const port = 1337; // Change this to your server port
     let data_location = window.location.href;
     if(data_location.indexOf('restaurant.html') > 0) {
       let pos = data_location.indexOf('restaurant.html');
       data_location = data_location.substring(0,pos);
     }
-    return `${data_location}/data/restaurants.json`;
+    //return `${data_location}/data/restaurants.json`;
+    return `http://localhost:${port}/restaurants/`;
   }
 
   /**
@@ -25,7 +26,7 @@ class DBHelper {
   static fetchRestaurants(callback) {
 
     let xhr = new XMLHttpRequest();
-    xhr.open('GET', DBHelper.DATABASE_URL);
+    /*xhr.open('GET', DBHelper.DATABASE_URL);
     xhr.onload = () => {
       if (xhr.status === 200) { // Got a success response from server!
         const json = JSON.parse(xhr.responseText);
@@ -37,8 +38,8 @@ class DBHelper {
       }
     };
     xhr.send();
-    /*
-    fetch(DBHelper.DATABASE_URL)
+    */
+    /*fetch(DBHelper.DATABASE_URL)
       .then(response => {
         if (!response.ok) {
           throw Error(`Request failed. Returned status of ${response.statusText}`);
@@ -47,8 +48,11 @@ class DBHelper {
         return restaurants;
       })
       .then(restaurants => callback(null, restaurants))
-      .catch(err => callback(err, null));
-      */
+      .catch(err => callback(err, null));*/
+    fetch(DBHelper.DATABASE_URL)
+    .then(response => response.json())
+    .then(restaurants => callback(null, restaurants))
+    .catch(err => callback(err, null))  
   }
 
   /**
@@ -170,28 +174,47 @@ class DBHelper {
    * Restaurant image URL.
    */
   static imageUrlForRestaurant(restaurant) {
-    return (`/img/${restaurant.photograph}`);
+    if(restaurant.photograph && restaurant.photograph.endsWith('.jpg')) {
+        return (`/img/${restaurant.photograph}`);
+    } else {
+      return (`/img/${restaurant.id}-small.jpg`);
+    }
   }
 
   /**
    * Restaurant image alt text.
    */
   static imageAlttextForRestaurant(restaurant) {
-    return (`${restaurant.alt_text}`);
+    if (restaurant.alt_text) {
+      return (`${restaurant.alt_text}`);
+    } else {
+      return (`${restaurant.name}`);
+    }
   }
 
   /**
    * Home Page image Srcset.
    */
   static imageSrcsetForHomePage(restaurant) {
-    return (`${restaurant.srcset_home}`);
+    if (restaurant.srcset_home) {
+      return (`${restaurant.srcset_home}`);
+    } else {
+      return (`img/${restaurant.id}-small.jpg 1x,
+               img/${restaurant.id}-medium.jpg 2x`)
+    }
   }
 
   /**
    * Restaurant Page image Srcset.
    */
   static imageSrcsetForRestaurantPage(restaurant) {
-    return (`${restaurant.srcset_restaurant}`);
+    if (restaurant.srcset_restaurant) {
+      return (`${restaurant.srcset_restaurant}`);
+    } else {
+      return (`img/${restaurant.id}-small.jpg 400w,
+               img/${restaurant.id}-medium.jpg 600w,
+               img/${restaurant.id}-large.jpg 800w`)
+    }
   }
 
   /**
