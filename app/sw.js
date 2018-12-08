@@ -1,15 +1,10 @@
-const staticCacheName = 'mws-restaurant-static-v1';
+const staticCacheName = 'mws-restaurant-static-v163';
 
 if (('function' === typeof importScripts) && (typeof idb === 'undefined')) {
-    self.importScripts('js/idb.js');
+    self.importScripts('/js/idb.js');
+    self.importScripts('/js/dbhelper.js');
+    self.importScripts('/js/idbhelper.js');
 }
-
-const dbPromise = idb.open('mws-restaurant-db', 1, upgradeDB => {
-  switch (upgradeDB.oldVersion) {
-    case 0:
-      upgradeDB.createObjectStore('restaurants');
-  }
-});
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -18,10 +13,14 @@ self.addEventListener('install', event => {
         return cache.addAll([
           '/index.html',
           '/css/styles.css',
+          'https://unpkg.com/leaflet@1.3.1/dist/leaflet.css',
+          'https://unpkg.com/leaflet@1.3.1/dist/leaflet.js',
+          '/browser-sync/browser-sync-client.js?v=2.26.3',
           '/js/dbhelper.js',
-          '/js/register_sw.js',
+          '/js/register_service_worker.js',
           '/js/main.js',
           '/js/idb.js',
+          '/js/idbhelper.js',
           '/js/restaurant_info.js',
           '/img/offline.jpg',
           '/img/icon/Icon.png',
@@ -95,9 +94,16 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const requestUrl = new URL(request.url);
   if (requestUrl.port == 1337) {
-    console.log('json request:',request);
-    //event.respondWith(fetch(request))
-    event.respondWith(idbResponse(request));
+    if (event.request.method !== 'GET') {
+      return;
+    }
+    //event.respondWith(idbResponse(request));
+    if (request.url.includes('reviews')) {
+      let id = +requestUrl.searchParams.get('restaurant_id');
+      event.respondWith(idbReviewResponse(request, id));
+    } else {
+      event.respondWith(idbRestaurantResponse(request));
+    }
   } else {
     event.respondWith(
       caches.match(event.request).then(response => {
@@ -123,7 +129,7 @@ self.addEventListener('fetch', event => {
         }
         return new Response('Not connected to the internet', {
           status: 404,
-          statusText: "Not connected to the internet"
+          statusText: 'Not connected to the internet'
         });
       })
     );
@@ -177,18 +183,20 @@ function cacheResponse(request) {
   }).catch(error => console.error(error));
 }
 
-function idbResponse(request) {
-  return idbKeyVal.get('restaurants')
+function idbRestaurantResponse(request) {
+  return idbKeyVal.getAll('restaurants')
     .then(restaurants => {
-      return (
-        restaurants ||
-        fetch(request)
+      if (restaurants.length) {
+        return restaurants;
+      }
+      return fetch(request)
           .then(response => response.json())
           .then(json => {
-            idbKeyVal.set('restaurants', json);
-            return json;
-          })
-      );
+          json.forEach(restaurant => {
+            idbKeyVal.set('restaurants', restaurant);
+          });
+          return json;
+        });
     })
     .then(response => new Response(JSON.stringify(response)))
     .catch(error => {
@@ -199,22 +207,26 @@ function idbResponse(request) {
     });
 }
 
-// IndexedDB object with get & set methods
-// See https://github.com/jakearchibald/idb for more info
-const idbKeyVal = {
-  get(key) {
-    return dbPromise.then(db => {
-      return db
-        .transaction('restaurants')
-        .objectStore('restaurants')
-        .get(key);
+function idbReviewResponse(request, id) {
+  return idbKeyVal.getAllIdx('reviews', 'restaurant_id', id)
+    .then(reviews => {
+      if (reviews.length) {
+        return reviews;
+      }
+      return fetch(request)
+        .then(response => response.json())
+        .then(json => {
+          json.forEach(review => {
+            idbKeyVal.set('reviews', review);
+          });
+          return json;
+        });
+    })
+    .then(response => new Response(JSON.stringify(response)))
+    .catch(error => {
+      return new Response(error, {
+        status: 404,
+        statusText: 'Invalid Request'
+      });
     });
-  },
-  set(key, val) {
-    return dbPromise.then(db => {
-      const tx = db.transaction('restaurants', 'readwrite');
-      tx.objectStore('restaurants').put(val, key);
-      return tx.complete;
-    });
-  }
-};
+}

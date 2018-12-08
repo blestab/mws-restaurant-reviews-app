@@ -11,13 +11,176 @@ class DBHelper {
     const protocol = window.location.protocol;
     const host = window.location.host;
     const port = 1337; // Change this to your server port
-    let data_location = window.location.href;
-    if(data_location.indexOf('restaurant.html') > 0) {
-      let pos = data_location.indexOf('restaurant.html');
-      data_location = data_location.substring(0,pos);
-    }
-    //return `${data_location}/data/restaurants.json`;
-    return `http://localhost:${port}/restaurants/`;
+    return `http://localhost:${port}`;
+  }
+
+  static markFavorite(id) {
+    fetch(`${DBHelper.DATABASE_URL}/restaurants/${id}/?is_favorite=true`, {
+      method: 'PUT'
+    }).catch(err => console.log(err));
+  }
+
+  static unMarkFavorite(id) {
+    fetch(`${DBHelper.DATABASE_URL}/restaurants/${id}/?is_favorite=false`, {
+      method: 'PUT'
+    }).catch(err => console.log(err));
+  }
+
+  static fetchRestaurantReviewsById(id, callback) {
+    fetch(DBHelper.DATABASE_URL + `/reviews/?restaurant_id=${id}`)
+      .then(response => response.json())
+      .then(data => callback(null, data))
+      .catch(err => callback(err, null));
+  }
+
+  static createRestaurantReview(restaurant_id, name, rating, comments, callback) {
+    const url = DBHelper.DATABASE_URL + '/reviews/';
+    const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    const method = 'POST';
+    const data = {
+      restaurant_id: restaurant_id,
+      name: name,
+      rating: +rating,
+      comments: comments
+    };
+    const body = JSON.stringify(data);
+
+    fetch(url, {
+      headers: headers,
+      method: method,
+      body: body
+    })
+    .then(response => response.json())
+    .then(data => callback(null, data))
+    .catch(err => {
+      /* We are offline so lets save review to IndexedDB */
+      DBHelper.createIDBReview(data)
+        .then(review_key => {
+          DBHelper.addRequestToQueue(url, headers, method, data, review_key)
+            .then(offline_key => console.log('added request:', offline_key));
+        });
+      callback(err, null);
+    });
+  }
+
+  static toggleFavorite(restaurant, callback) {
+    const is_favorite = JSON.parse(restaurant.is_favorite);
+    const id = +restaurant.id;
+    restaurant.is_favorite = !is_favorite;
+
+    const url = `${DBHelper.DATABASE_URL}/restaurants/${id}/?is_favorite=${!is_favorite}`;
+    const method = 'PUT';
+
+    fetch(url, {
+      method: method
+    })
+      .then(response => response.json())
+      .then(data => callback(null, data))
+      .catch(err => {
+        /* We are offline so lets save review to IndexedDB */
+        DBHelper.updateIDBRestaurant(restaurant)
+          .then(() => {
+            // add to sync queue...
+            DBHelper.addRequestToQueue(url, {}, method, '')
+              .then(offline_key => console.log('added request:', offline_key));
+          });
+        callback(err, null);
+      });
+  }
+
+  static updateIDBRestaurant(restaurant) {
+    return idbKeyVal.set('restaurants', restaurant);
+  }
+
+  static createIDBReview(review) {
+    return idbKeyVal.setReturnId('reviews', review)
+      .then(id => {
+        return id;
+      });
+  }
+
+  static addRequestToQueue(url, headers, method, data, review_key) {
+    const request = {
+      url: url,
+      headers: headers,
+      method: method,
+      data: data,
+      review_key: review_key
+    };
+    return idbKeyVal.setReturnId('offline', request)
+      .then(id => {
+        return id;
+      });
+  }
+
+  static processQueue() {
+  // Open offline queue & return cursor
+    dbPromise.then(db => {
+      if (!db) return;
+      const tx = db.transaction(['offline'], 'readwrite');
+      const store = tx.objectStore('offline');
+      return store.openCursor();
+    })
+      .then(function nextRequest (cursor) {
+        if (!cursor) {
+          return;
+        }
+
+        const offline_key = cursor.key;
+        const url = cursor.value.url;
+        const headers = cursor.value.headers;
+        const method = cursor.value.method;
+        const data = cursor.value.data;
+        const review_key = cursor.value.review_key;
+        const body = JSON.stringify(data);
+
+        fetch(url, {
+          headers: headers,
+          method: method,
+          body: body
+        })
+          .then(response => response.json())
+          .then(data => {
+            /* 1. Clear request record from offline store */
+            dbPromise.then(db => {
+              const tx = db.transaction(['offline'], 'readwrite');
+              tx.objectStore('offline').delete(offline_key);
+              return tx.complete;
+            })
+              .then(() => {
+                /* Is this a review or favorite update ? */
+                if (review_key === undefined) {
+                  console.log('Favorite posted to server.');
+                } else {
+                  /* 2. Add new review to the reviews store
+                     3. Delete old review record from the reviews store */
+                  dbPromise.then(db => {
+                    const tx = db.transaction(['reviews'], 'readwrite');
+                    return tx.objectStore('reviews').put(data)
+                      .then(() => tx.objectStore('reviews').delete(review_key))
+                      .then(() => {
+                        return tx.complete;
+                      })
+                      .catch(err => {
+                        tx.abort();
+                      });
+                  })
+                    .then(() => console.log('Review transaction successful!'))
+                    .catch(err => console.log('Offline store error', err));
+                }
+              })
+              .then(() => console.log('Offline record deleted successfully!'))
+              .catch(err => console.log('Offline store error', err));
+
+          }).catch(err => {
+            console.log('Fetch error. We are possibly offline.');
+            console.log(err);
+            return;
+          });
+        return cursor.continue().then(nextRequest);
+      })
+      .then(() => console.log('Done'))
+      .catch(err => console.log('Error opening cursor', err));
   }
 
   /**
@@ -49,10 +212,10 @@ class DBHelper {
       })
       .then(restaurants => callback(null, restaurants))
       .catch(err => callback(err, null));*/
-    fetch(DBHelper.DATABASE_URL)
+    fetch(DBHelper.DATABASE_URL + '/restaurants/')
     .then(response => response.json())
     .then(restaurants => callback(null, restaurants))
-    .catch(err => callback(err, null))  
+    .catch(err => callback(err, null))
   }
 
   /**
@@ -242,3 +405,6 @@ class DBHelper {
   } */
 
 }
+
+if(typeof window !== 'undefined')
+  window.DBHelper = DBHelper;   // <- exposes DBHelper on window (global) object

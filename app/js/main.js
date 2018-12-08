@@ -7,10 +7,20 @@ var markers = []
 /**
  * Fetch neighborhoods and cuisines as soon as the page is loaded.
  */
-document.addEventListener('DOMContentLoaded', (event) => {
+window.addEventListener('DOMContentLoaded', (event) => {
+  //initMap(); // added
+  //fetchNeighborhoods();
+  //fetchCuisines();
+  //console.log('DOMContentLoaded fired')
+});
+
+
+window.addEventListener('load', function () {
   initMap(); // added
   fetchNeighborhoods();
   fetchCuisines();
+  //
+  DBHelper.processQueue();
 });
 
 /**
@@ -18,6 +28,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
  */
 const fetchNeighborhoods = () => {
   DBHelper.fetchNeighborhoods((error, neighborhoods) => {
+    //debugger;
     if (error) { // Got an error
       console.error(error);
     } else {
@@ -158,6 +169,28 @@ const fillRestaurantsHTML = (restaurants = self.restaurants) => {
 const createRestaurantHTML = (restaurant) => {
   const li = document.createElement('li');
 
+  const fav = document.createElement('button');
+  fav.className = 'fav-control';
+  fav.setAttribute('aria-label', 'favorite');
+
+  // RegEx method tests if is_favorite is true or "true" and returns true
+  // https://codippa.com/how-to-convert-string-to-boolean-javascript/
+  if ((/true/i).test(restaurant.is_favorite)) {
+    fav.classList.add('active');
+    fav.setAttribute('aria-pressed', 'true');
+    fav.innerHTML = `Remove ${restaurant.name} as a favorite`;
+    fav.title = `Remove ${restaurant.name} as a favorite`;
+  } else {
+    fav.setAttribute('aria-pressed', 'false');
+    fav.innerHTML = `Add ${restaurant.name} as a favorite`;
+    fav.title = `Add ${restaurant.name} as a favorite`;
+  }
+
+  fav.addEventListener('click', (evt) => {
+    favoriteClickHandler(evt, fav, restaurant);
+  }, false);
+
+  li.append(fav);
   const image = document.createElement('img');
   image.className = 'restaurant-img';
   image.src = DBHelper.imageUrlForRestaurant(restaurant);
