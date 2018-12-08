@@ -137,6 +137,7 @@ const fillRestaurantHTML = (restaurant = self.restaurant) => {
  */
 const fillRestaurantHoursHTML = (operatingHours = self.restaurant.operating_hours) => {
   const hours = document.getElementById('restaurant-hours');
+  console.log(operatingHours);
   for (let key in operatingHours) {
     const row = document.createElement('tr');
 
