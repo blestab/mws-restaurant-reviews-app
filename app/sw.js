@@ -1,4 +1,4 @@
-const staticCacheName = 'mws-restaurant-static-v163';
+const staticCacheName = 'mws-restaurant-static-v164';
 
 if (('function' === typeof importScripts) && (typeof idb === 'undefined')) {
     self.importScripts('/js/idb.js');

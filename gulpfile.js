@@ -222,30 +222,6 @@ gulp.task('serve', () => {
   });
 });
 
-gulp.task('serve2', () => {
-//runSequence(['clean', 'wiredep'], ['styles', 'scripts', 'fonts', 'dbhelper','scripts1','scripts2','manifest'], () => {
-  runSequence(['clean'], ['styles', 'scripts'], () => {
-    browserSync.init({
-      notify: false,
-      port: 8000,
-      server: {
-        baseDir: ['.tmp', 'app'],
-        routes: {
-          '/bower_components': 'bower_components'
-        }
-      }
-    });
-
-    gulp.watch([
-      'app/*.html',
-      'app/img/**/*',
-      'app/manifest.json',
-      '.tmp/fonts/**/*'
-    ]).on('change', reload);
-
-  });
-});
-
 gulp.task('serve:dist', ['default'], () => {
   browserSync.init({
     notify: false,
